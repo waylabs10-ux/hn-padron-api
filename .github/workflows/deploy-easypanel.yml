@@ -1,0 +1,21 @@
+name: Deploy to EasyPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hn-padron-api
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger protected EasyPanel deployment
+        env:
+          DEPLOY_URL: ${{ secrets.EASYPANEL_DEPLOY_URL }}
+        run: |
+          test -n "$DEPLOY_URL"
+          curl --fail --silent --show-error --retry 3 --request POST "$DEPLOY_URL"

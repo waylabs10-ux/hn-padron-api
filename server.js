@@ -196,6 +196,50 @@ async function discoverLookupAction() {
 
 function normalizeResult(data, dni) {
   const clean = (value, max = 220) => value == null ? null : String(value).replace(/[\u0000-\u001f]/g, " ").trim().slice(0, max) || null;
+  const numeric = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(String(value).replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const validHondurasCoordinates = (lat, lng) =>
+    lat !== null && lng !== null && lat >= 12.8 && lat <= 16.7 && lng >= -89.5 && lng <= -82.8;
+  const coordinateContainers = [
+    data,
+    data?.coordenadas,
+    data?.coordinates,
+    data?.ubicacion,
+    data?.location,
+    data?.mapa,
+    data?.centro,
+    data?.centroVotacion,
+  ].filter((value) => value && typeof value === "object");
+  let coordenadasLat = null;
+  let coordenadasLng = null;
+  for (const container of coordinateContainers) {
+    if (Array.isArray(container) && container.length >= 2) {
+      const possibleLng = numeric(container[0]);
+      const possibleLat = numeric(container[1]);
+      if (validHondurasCoordinates(possibleLat, possibleLng)) {
+        coordenadasLat = possibleLat;
+        coordenadasLng = possibleLng;
+        break;
+      }
+      continue;
+    }
+    const lat = numeric(
+      container.coordenadasLat ?? container.coordenadas_lat ?? container.latitud ??
+      container.latitude ?? container.lat ?? container.y,
+    );
+    const lng = numeric(
+      container.coordenadasLng ?? container.coordenadas_lng ?? container.longitud ??
+      container.longitude ?? container.lng ?? container.lon ?? container.x,
+    );
+    if (validHondurasCoordinates(lat, lng)) {
+      coordenadasLat = lat;
+      coordenadasLng = lng;
+      break;
+    }
+  }
   return {
     identidad: dni,
     nombre: clean(data.nombre, 180),
@@ -208,6 +252,9 @@ function normalizeResult(data, dni) {
     linea: clean(data.linea, 30),
     habilitado: typeof data.habilitado === "boolean" ? data.habilitado : null,
     fullAddress: clean(data.fullAddress, 420),
+    coordenadasLat,
+    coordenadasLng,
+    coordenadasFuente: coordenadasLat !== null ? "electoral-source" : null,
   };
 }
 
@@ -256,7 +303,7 @@ app.get("/health", (_req, res) => {
   res.json({
     status: API_TOKEN ? "ok" : "misconfigured",
     service: "hn-padron-api",
-    version: "2.0.0",
+    version: "2.1.0",
     queue: { active: upstreamQueue.active, pending: upstreamQueue.queue.length },
     timestamp: new Date().toISOString(),
   });

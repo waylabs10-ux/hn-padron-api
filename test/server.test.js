@@ -27,6 +27,28 @@ test("interpreta y normaliza la respuesta electoral", () => {
   assert.equal(data.habilitado, true);
 });
 
+test("conserva coordenadas planas válidas del centro en Honduras", () => {
+  const data = normalizeResult({
+    nombre: "PERSONA PRUEBA",
+    centroVotacion: "CURN",
+    coordenadas_lat: "15.52210",
+    coordenadas_lng: "-88.03120",
+  }, "0501198500001");
+  assert.equal(data.coordenadasLat, 15.5221);
+  assert.equal(data.coordenadasLng, -88.0312);
+  assert.equal(data.coordenadasFuente, "electoral-source");
+});
+
+test("admite GeoJSON [longitud, latitud] y descarta puntos fuera de Honduras", () => {
+  const inside = normalizeResult({ coordinates: [-87.2068, 14.0723] }, "0801199000000");
+  assert.equal(inside.coordenadasLat, 14.0723);
+  assert.equal(inside.coordenadasLng, -87.2068);
+
+  const outside = normalizeResult({ latitud: 4.7, longitud: -74.1 }, "0801199000000");
+  assert.equal(outside.coordenadasLat, null);
+  assert.equal(outside.coordenadasLng, null);
+});
+
 test("comparación de token falla de forma cerrada", () => {
   assert.equal(timingSafeEqualText("secreto", "secreto"), true);
   assert.equal(timingSafeEqualText("secreto", "otro"), false);

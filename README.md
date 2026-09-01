@@ -1,172 +1,76 @@
-# 🗳️ HN Padrón Electoral API
+# HN Padrón Electoral API
 
-> API REST para consultar puestos de votación en Honduras por número de cédula de identidad.
+Servicio privado de VOTOMAP para consultar la información electoral de
+Honduras. El navegador nunca llama este servicio directamente: la Edge
+Function de VOTOMAP valida al usuario, aplica consentimiento/cuotas y realiza
+la llamada servidor-a-servidor.
 
-![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=node.js&logoColor=white)
-![Express](https://img.shields.io/badge/Express-4.x-000000?style=flat-square&logo=express&logoColor=white)
-![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E?style=flat-square&logo=railway&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
+## Seguridad y capacidad
 
----
+- HN_API_TOKEN obligatorio y comparación en tiempo constante.
+- Endpoint principal POST /v1/consulta para evitar DNI en URLs y logs.
+- No se registran DNI, token ni datos personales.
+- Caché en memoria identificada por hash del DNI.
+- Hasta 8 consultas simultáneas y una cola de 200 solicitudes por defecto.
+- Límite configurable de 600 solicitudes por minuto.
+- Descubrimiento automático de la acción de la fuente cuando cambia su
+  despliegue Next.js.
+- Respuestas personales con Cache-Control: no-store.
 
-## 📋 Descripción
+## Variables
 
-API que permite consultar el padrón electoral de Honduras devolviendo información completa del centro de votación asignado a un ciudadano, incluyendo nombre, departamento, municipio, sector electoral, centro de votación y JRV.
+| Variable | Obligatoria | Valor recomendado |
+| --- | --- | --- |
+| HN_API_TOKEN | Sí | secreto aleatorio de al menos 32 bytes |
+| PORT | No | 3000 |
+| HN_UPSTREAM_URL | No | https://dondemetocavotar.com/ |
+| HN_UPSTREAM_NEXT_ACTION | No | vacío para descubrimiento automático |
+| HN_MAX_CONCURRENT | No | 8 |
+| HN_MAX_QUEUED | No | 200 |
+| HN_RATE_LIMIT_PER_MINUTE | No | 600 |
+| HN_CACHE_TTL_MS | No | 43200000 |
 
----
+## Endpoints
 
-## 🚀 Endpoints
+### GET /health
 
-### `GET /consulta/:dni`
+No devuelve datos personales ni secretos.
 
-Consulta el puesto de votación por número de cédula.
+### POST /v1/consulta
 
-**Parámetros**
+~~~http
+POST /v1/consulta
+Authorization: Bearer <HN_API_TOKEN>
+Content-Type: application/json
 
-| Parámetro | Tipo   | Descripción                              |
-|-----------|--------|------------------------------------------|
-| `dni`     | string | Número de cédula hondureña (13 dígitos) |
+{"dni":"0801199000000"}
+~~~
 
-**Ejemplo de petición**
+La respuesta normalizada incluye nombre, sexo, departamento, municipio,
+sector electoral, centro de votación, JRV, línea, habilitación y dirección.
 
-```bash
-curl https://tu-app.up.railway.app/consulta/0801199001234
-```
+### GET /consulta/:dni
 
-**Respuesta exitosa `200`**
+Compatibilidad protegida con la versión anterior. VOTOMAP no usa esta ruta
+porque un DNI no debe quedar en logs de URL.
 
-```json
-{
-  "success": true,
-  "data": {
-    "identidad": "0801199001234",
-    "nombre": "MARIA FERNANDA GUERRERO RODRIGUEZ",
-    "sexo": "FEMENINO",
-    "departamento": "FRANCISCO MORAZAN",
-    "municipio": "DISTRITO CENTRAL",
-    "sectorElectoral": "COL. QUINCE DE SEPTIEMBRE",
-    "centroVotacion": "COLEGIO DE ABOGADOS",
-    "jrv": "10809",
-    "linea": "339",
-    "habilitado": true,
-    "fullAddress": "COLEGIO DE ABOGADOS, DISTRITO CENTRAL, FRANCISCO MORAZAN, Honduras"
-  }
-}
-```
+## Desarrollo
 
-**Respuestas de error**
+~~~bash
+npm ci
+HN_API_TOKEN=solo-desarrollo npm test
+HN_API_TOKEN=solo-desarrollo npm start
+~~~
 
-| Código | Descripción                                      |
-|--------|--------------------------------------------------|
-| `400`  | Cédula inválida (no tiene 13 dígitos numéricos) |
-| `404`  | Cédula no encontrada en el padrón electoral      |
-| `429`  | Límite de solicitudes excedido (10 req/min)      |
-| `502`  | Error al conectar con la fuente de datos         |
+## Despliegue
 
----
+El repositorio incluye Dockerfile para EasyPanel. El servicio escucha en el
+puerto 3000; el dominio de producción es https://hon.votomap.site.
 
-### `GET /health`
+## Fuente y límites
 
-Verifica que el servidor esté operativo.
-
-```bash
-curl https://tu-app.up.railway.app/health
-```
-
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-06-10T15:30:00.000Z"
-}
-```
-
----
-
-## ⚙️ Instalación local
-
-### Requisitos
-
-- Node.js 18+
-- npm
-
-### Pasos
-
-```bash
-# Clonar el repositorio
-git clone https://github.com/waylabs10-ux/hn-padron-api.git
-cd hn-padron-api
-
-# Instalar dependencias
-npm install
-
-# Iniciar el servidor
-node server.js
-```
-
-El servidor quedará disponible en `http://localhost:3000`.
-
----
-
-## 🧪 Pruebas rápidas
-
-```bash
-# Consulta válida
-curl http://localhost:3000/consulta/0801199001234
-
-# Cédula con formato inválido
-curl http://localhost:3000/consulta/12345
-
-# Health check
-curl http://localhost:3000/health
-```
-
----
-
-## 🏗️ Estructura del proyecto
-
-```
-hn-padron-api/
-├── server.js          # Servidor Express + lógica principal
-├── package.json       # Dependencias y configuración
-├── .gitignore         # Archivos ignorados por Git
-└── README.md          # Documentación
-```
-
----
-
-## 🔒 Rate Limiting
-
-Para evitar abuso, la API aplica un límite de **10 solicitudes por minuto por IP**. Al superar el límite se devuelve un error `429`.
-
----
-
-## 🌐 Deploy en Railway
-
-1. Fork o clona este repositorio
-2. Ve a [railway.app](https://railway.app) → **New Project**
-3. Selecciona **Deploy from GitHub repo**
-4. Elige `hn-padron-api`
-5. En **Settings → Networking** → **Generate Domain**
-
-Railway detecta Node.js automáticamente. No se requieren variables de entorno adicionales.
-
----
-
-## ⚠️ Aviso legal
-
-Esta API actúa como intermediario de consulta pública del padrón electoral de Honduras. Los datos retornados son de carácter público y están disponibles en los portales oficiales del **Consejo Nacional Electoral (CNE)**. Su uso debe limitarse a fines informativos y de orientación ciudadana.
-
----
-
-## 🛠️ Stack
-
-- **Runtime:** Node.js 18+
-- **Framework:** Express 4.x
-- **Deploy:** Railway
-- **Fuente de datos:** Padrón Electoral CNE Honduras
-
----
-
-## 📄 Licencia
-
-MIT © [WayLabs](https://github.com/waylabs10-ux)
+La Ley Electoral hondureña establece el carácter público del Censo Nacional
+Electoral y su consulta personal. No se encontró una API pública oficial y
+documentada del CNE. El adaptador actual consume el servicio electoral
+disponible detrás de dondemetocavotar.com; está desacoplado para poder
+reemplazarlo por una fuente oficial sin cambiar el contrato de VOTOMAP.

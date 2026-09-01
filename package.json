@@ -1,16 +1,19 @@
 {
-  "name": "blue",
-  "version": "1.0.0",
-  "main": "consultaPuestohn.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "name": "hn-padron-api",
+  "version": "2.0.0",
+  "private": true,
+  "description": "API privada de VOTOMAP para consultar el padrón electoral de Honduras",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js",
+    "test": "node --test"
+  },
   "dependencies": {
     "express": "^5.2.1"
-  },
-  "type": "module"
+  }
 }
